@@ -46,7 +46,6 @@
 #define MAX_IP_RESULTS 10
 
 static char *myip = NULL;
-static int define_microsoft_extensions = 0; //0: False, 1: True
 
 // Default error printer function.
 static int		// Number of characters printed, negative value in case of output error.
@@ -119,7 +118,8 @@ print_jserror(JSContext *cx, const char *message, JSErrorReport *report)
 // This function is used by dnsResolve, dnsResolveEx, myIpAddress,
 // myIpAddressEx.
 static int
-resolve_host(const char *hostname, char *ipaddr_list, int max_results)
+resolve_host(const char *hostname, char *ipaddr_list, int max_results,
+             int req_ai_family)
 {
   struct addrinfo hints;
   struct addrinfo *result;
@@ -138,7 +138,7 @@ resolve_host(const char *hostname, char *ipaddr_list, int max_results)
 
   memset(&hints, 0, sizeof(struct addrinfo));
 
-  hints.ai_family = AF_UNSPEC;
+  hints.ai_family = req_ai_family;
   hints.ai_socktype = SOCK_STREAM;
 
   error = getaddrinfo(hostname, NULL, &hints, &result);
@@ -166,7 +166,8 @@ dns_resolve(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
   char* out;
   char ipaddr[INET6_ADDRSTRLEN] = "";
 
-  if(resolve_host(name, ipaddr, 1)) {
+  // Return null on failure.
+  if(resolve_host(name, ipaddr, 1, AF_INET)) {
     *rval = JSVAL_NULL;
     return JS_TRUE;
   }
@@ -188,12 +189,11 @@ dns_resolve_ex(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
   char* out;
   char ipaddr[INET6_ADDRSTRLEN * MAX_IP_RESULTS + MAX_IP_RESULTS] = "";
 
-  if(resolve_host(name, ipaddr, MAX_IP_RESULTS)) {
-    *rval = JSVAL_NULL;
-    return JS_TRUE;
-  }
-
   out = JS_malloc(cx, strlen(ipaddr) + 1);
+  // Return "" on failure.
+  if(resolve_host(name, ipaddr, MAX_IP_RESULTS, AF_UNSPEC)) {
+    strcpy(out, "");
+  }
   strcpy(out, ipaddr);
   JSString *str = JS_NewString(cx, out, strlen(out));
   *rval = STRING_TO_JSVAL(str);
@@ -213,7 +213,7 @@ my_ip(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
   else {
     char name[256];
     gethostname(name, sizeof(name));
-    if (resolve_host(name, ipaddr, 1)) {
+    if (resolve_host(name, ipaddr, 1, AF_INET)) {
       strcpy(ipaddr, "127.0.0.1");
     }
   }
@@ -238,8 +238,8 @@ my_ip_ex(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
   else {
     char name[256];
     gethostname(name, sizeof(name));
-    if (resolve_host(name, ipaddr, MAX_IP_RESULTS)) {
-      strcpy(ipaddr, "127.0.0.1");
+    if (resolve_host(name, ipaddr, MAX_IP_RESULTS, AF_UNSPEC)) {
+      strcpy(ipaddr, "");
     }
   }
 
@@ -385,16 +385,14 @@ errexit:
   return 0;
 }
 
+// Decprecated: This function doesn't do anything.
+//
+// This function doesn't do anything. Microsoft exntensions are now enabled by
+// default.
 void
 pacparser_enable_microsoft_extensions()
 {
-  if(cx) {
-    print_error("pacparser.c: pacparser_enable_microsoft_extensions: "
-            "Can not enable microsoft extensions now. This function should be "
-            "called before pacparser_init.\n");
-    return;
-  }
-  define_microsoft_extensions = 1;
+  return;
 }
 
 // Initialize PAC parser.
@@ -429,18 +427,15 @@ pacparser_init()
 		  "Could not define myIpAddress in JS context.");
     return 0;
   }
-  if (define_microsoft_extensions) {
-    if (!JS_DefineFunction(cx, global, "dnsResolveEx", dns_resolve_ex, 1, 0)) {
-      print_error("%s %s\n", error_prefix,
-		    "Could not define dnsResolveEx in JS context.");
-      return 0;
-    }
-    if (!JS_DefineFunction(cx, global, "myIpAddressEx", my_ip_ex, 0, 0)) {
-      print_error("%s %s\n", error_prefix,
-		    "Could not define myIpAddressEx in JS context.");
-
-      return 0;
-    }
+  if (!JS_DefineFunction(cx, global, "dnsResolveEx", dns_resolve_ex, 1, 0)) {
+    print_error("%s %s\n", error_prefix,
+      "Could not define dnsResolveEx in JS context.");
+    return 0;
+  }
+  if (!JS_DefineFunction(cx, global, "myIpAddressEx", my_ip_ex, 0, 0)) {
+    print_error("%s %s\n", error_prefix,
+		  "Could not define myIpAddressEx in JS context.");
+    return 0;
   }
   // Evaluate pacUtils. Utility functions required to parse pac files.
   if (!JS_EvaluateScript(cx,           // JS engine context
@@ -559,7 +554,7 @@ pacparser_find_proxy(const char *url, const char *host)
 
   script = (char*) malloc(32 + strlen(url) + strlen(host));
   script[0] = '\0';
-  strcat(script, "FindProxyForURL('");
+  strcat(script, "findProxyForURL('");
   strcat(script, url);
   strcat(script, "', '");
   strcat(script, host);
@@ -580,7 +575,6 @@ pacparser_cleanup()
 {
   // Reinitliaze config variables.
   myip = NULL;
-  define_microsoft_extensions = 0;
   if (cx) {
     JS_DestroyContext(cx);
     cx = NULL;
