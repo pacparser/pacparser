@@ -58,7 +58,7 @@ dist: pacparser.dll pactester
 	copy pacparser.h dist
 	copy pactester.exe dist
 	if exist pacparser.lib copy pacparser.lib dist
-	copy ..\README dist\README.txt
+	copy ..\README.md dist\README.txt
 	copy ..\COPYING dist\COPYING.txt
 	copy ..\INSTALL dist\INSTALL.txt
 	mkdir dist\docs
@@ -67,8 +67,16 @@ dist: pacparser.dll pactester
 
 # Targets to build python module
 pymod: pacparser.h pacparser.dll
-	cd pymod && setup.py dist
-	cd .. && tests\runtests.py
+	cd pymod && py setup.py dist
+	cd .. && py tests\runtests.py
+
+pymod2: pacparser.h pacparser.dll
+	cd pymod && py -2 setup.py dist
+	cd .. && py -2 tests\runtests.py
+
+pymod3: pacparser.h pacparser.dll
+	cd pymod && py -3 setup.py dist
+	cd .. && py -3 tests\runtests.py
 
 clean:
 	del /F pacparser.dll *.lib pacparser.def pacparser.exp pacparser.o pactester.exe libpacparser.a

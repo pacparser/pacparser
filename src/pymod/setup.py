@@ -35,10 +35,10 @@ from distutils.core import Extension
 def main():
   # Use Makefile for windows. distutils doesn't work well with windows.
   if sys.platform == 'win32':
-    pydll = ('C:\windows\system32\python%s.dll' %
-             sysconfig.get_config_vars('VERSION')[0])
-    os.system('make -f Makefile.win32 %s PY_HOME="%s" PY_DLL="%s"' %
-              (' '.join(sys.argv[1:]), sys.prefix, pydll))
+    pyVer = sysconfig.get_config_vars('VERSION')[0]
+    pyDLL = 'C:\windows\system32\python%s.dll' % pyVer
+    os.system('make -f Makefile.win32 %s PY_HOME="%s" PY_DLL="%s" PY_VER="%s"' %
+              (' '.join(sys.argv[1:]), sys.prefix, pyDLL, pyVer))
     return
 
   pacparser_module = Extension('_pacparser',
@@ -50,7 +50,7 @@ def main():
          description = 'Pacparser package',
          author = 'Manu Garg',
          author_email = 'manugarg@gmail.com',
-         url = 'http://code.google.com/p/pacparser',
+         url = 'http://github.com/pacparser/pacparser',
          long_description = 'python library to parse proxy auto-config (PAC) '
                            'files.',
          license = 'LGPL',
