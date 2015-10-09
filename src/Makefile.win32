@@ -61,6 +61,7 @@ dist: pacparser.dll pactester pacparse
 	copy pacparser.h dist
 	copy pactester.exe dist
 	copy pacparse.exe dist
+	copy pacwget dist
 	if exist pacparser.lib copy pacparser.lib dist
 	copy ..\README.md dist\README.txt
 	copy ..\COPYING dist\COPYING.txt
