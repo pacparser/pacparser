@@ -28,7 +28,7 @@ CC=gcc
 
 .PHONY: clean pymod install-pymod
 
-all: pacparser.dll pacparser.lib pactester
+all: pacparser.dll pacparser.lib pactester pacparse
 
 pacparser.o: pacparser.c pac_utils.h js.lib
 	$(CC) $(CFLAGS) -c pacparser.c -o pacparser.o
@@ -51,12 +51,16 @@ pacparser.lib: pacparser.dll pacparser.def
 pactester: pactester.c pacparser.h pacparser.dll
 	$(CC) pactester.c -o pactester -lpacparser -L. -I.
 
-dist: pacparser.dll pactester
+pacparse: pacparse.c pacparser.h pacparser.dll
+	$(CC) pacparse.c -o pacparse -lpacparser -L. -I.
+
+dist: pacparser.dll pactester pacparse
 	if exist dist rmdir /s /q dist
 	mkdir dist
 	copy pacparser.dll dist
 	copy pacparser.h dist
 	copy pactester.exe dist
+	copy pacparse.exe dist
 	if exist pacparser.lib copy pacparser.lib dist
 	copy ..\README.md dist\README.txt
 	copy ..\COPYING dist\COPYING.txt
@@ -79,7 +83,7 @@ pymod3: pacparser.h pacparser.dll
 	cd .. && py -3 tests\runtests.py
 
 clean:
-	del /F pacparser.dll *.lib pacparser.def pacparser.exp pacparser.o pactester.exe libpacparser.a
+	del /F pacparser.dll *.lib pacparser.def pacparser.exp pacparser.o pactester.exe pacparse.exe libpacparser.a
 	$(MAKE) -C spidermonkey -f Makefile.win32 clean
 	cd pymod && setup.py clean
 	if exist dist rmdir /s /q dist
