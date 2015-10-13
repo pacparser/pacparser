@@ -30,19 +30,26 @@
 
 void usage(const char *progname)
 {
-  fprintf(stderr, "\nUsage:  %s <-p pacfile> <-u url> [-h host] "
-          "[-c client_ip] [-e]", progname);
-  fprintf(stderr, "\n        %s <-p pacfile> <-f urlslist> "
-          "[-c client_ip] [-e]\n", progname);
+  fprintf(stderr, "\nUsage:  %s -p pacfile -u url [-h host] "
+          "[-c client_ip] [-U pacurl] [-e46]", progname);
+  fprintf(stderr, "\n        %s -p pacfile -f urlslist "
+          "[-c client_ip] [-U pacurl] [-e46]\n", progname);
   fprintf(stderr, "\nOptions:\n");
   fprintf(stderr, "  -p pacfile   : PAC file to test (specify '-' to read "
                   "from standard input)\n");
   fprintf(stderr, "  -u url       : URL to test for\n");
   fprintf(stderr, "  -h host      : Host part of the URL\n");
   fprintf(stderr, "  -c client_ip : client IP address (as returned by "
-                  "myIpAddres() function\n");
+                  "myIpAddress() function\n");
   fprintf(stderr, "                 in PAC files), defaults to IP address "
                   "on which it is running.\n");
+  fprintf(stderr, "  -U pacurl    : URL that pacfile came from, to identify "
+                     "client IP address\n");
+  fprintf(stderr, "                 (creates UDP socket to host, more reliable "
+                    "than default\n");
+  fprintf(stderr, "                  on clients with multiple IP addresses)\n");
+  fprintf(stderr, "  -4           : use only IPv4 addresses for -U\n");
+  fprintf(stderr, "  -6           : use only IPv6 addresses for -U\n");
   fprintf(stderr, "  -e           : Deprecated: IPv6 extensions are enabled"
                   "by default now.\n");
   fprintf(stderr, "  -f urlslist  : a file containing list of URLs to be "
@@ -80,8 +87,10 @@ char *get_host_from_url(const char *url)
 int main(int argc, char* argv[])
 {
   char *pacfile=NULL, *url=NULL, *host=NULL, *urlslist=NULL, *client_ip=NULL;
+  char *pacurl=NULL;
+  int ipversion=0;
   signed char c;
-  while ((c = getopt(argc, argv, "evp:u:h:f:c:")) != -1)
+  while ((c = getopt(argc, argv, "ev46p:u:h:f:c:U:")) != -1)
     switch (c)
     {
       case 'v':
@@ -102,6 +111,15 @@ int main(int argc, char* argv[])
       case 'c':
         client_ip = optarg;
         break;
+      case 'U':
+	pacurl = optarg;
+	break;
+      case '4':
+	ipversion = 4;
+	break;
+      case '6':
+        ipversion = 6;
+	break;
       case 'e':
         break;
       case '?':
@@ -194,6 +212,21 @@ int main(int argc, char* argv[])
 
   if(client_ip)
     pacparser_setmyip(client_ip);
+  else if(pacurl) {
+    char *pachost;
+    pachost = get_host_from_url(pacurl);
+    if (!pachost) {
+      fprintf(stderr, "pactester.c: Error finding hostname in %s\n", pacurl);
+      exit(2);
+    }
+    if(!pacparser_setmyip_from_host(pachost, ipversion)) {
+      fprintf(stderr, "pactester.c: Error finding client IP with host %s", pachost);
+      if(ipversion!=0)
+        fprintf(stderr," and IP version %d", ipversion);
+      fprintf(stderr,"\n");
+      exit(2);
+    }
+  }
 
   char *proxy;
 
