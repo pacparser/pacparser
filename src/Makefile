@@ -73,7 +73,7 @@ BIN_PREFIX = $(PREFIX)/bin
 MAN_PREFIX = $(PREFIX)/share/man
 
 .PHONY: clean pymod install-pymod
-all: testpactester
+all: testpactester pacparse
 
 jsapi_buildstamp: spidermonkey/js/src
 	cd spidermonkey && SMCFLAGS="$(SHFLAGS) $(SMCFLAGS)" "$(MAKE)" jsapi
@@ -99,6 +99,9 @@ testpactester: pactester
 	echo "Running tests for pactester."
 	NO_INTERNET=$(NO_INTERNET) ../tests/runtests.sh
 
+pacparse: pacparse.c pacparser.h $(LIBRARY_LINK)
+	$(CC) $(CFLAGS) $(LDFLAGS) pacparse.c -o pacparse -lpacparser -L. -I.
+
 docs:
 	../tools/generatedocs.sh
 
@@ -107,8 +110,10 @@ install: all
 	install -m 644 $(LIBRARY) $(LIB_PREFIX)/$(LIBRARY)
 	ln -sf $(LIBRARY) $(LIB_PREFIX)/$(LIBRARY_LINK)
 	install -m 755 pactester $(BIN_PREFIX)/pactester
+	install -m 755 pacparse $(BIN_PREFIX)/pacparse
+	install -m 755 pacwget $(BIN_PREFIX)/pacwget
 	install -m 644 pacparser.h $(INC_PREFIX)/pacparser.h
-	# install pactester manpages
+	# install pactester, pacparse, and pacwget manpages
 	install -d $(MAN_PREFIX)/man1/
 	(test -d ../docs && install -m 644 ../docs/man/man1/*.1 $(MAN_PREFIX)/man1/) || true
 	# install pacparser manpages
@@ -131,6 +136,6 @@ install-pymod: pymod
 	cd pymod && ARCHFLAGS="" $(PYTHON) setup.py install --root="$(DESTDIR)/" $(EXTRA_ARGS)
 
 clean:
-	rm -f $(LIBRARY_LINK) $(LIBRARY) libjs.a pacparser.o pactester pymod/pacparser_o_buildstamp jsapi_buildstamp
+	rm -f $(LIBRARY_LINK) $(LIBRARY) libjs.a pacparser.o pactester pacparse.o pacparse pymod/pacparser_o_buildstamp jsapi_buildstamp
 	cd pymod && python setup.py clean --all
 	cd spidermonkey && "$(MAKE)" clean
